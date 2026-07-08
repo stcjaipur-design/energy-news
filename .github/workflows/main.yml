@@ -1,0 +1,20 @@
+name: Refresh Energy News
+on:
+  schedule:
+    - cron: '30 0,5,7,10,16 * * *'
+  workflow_dispatch: {}
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Build site with fresh news
+        run: node build.js
+      - name: Deploy to Netlify
+        run: npx --yes netlify-cli@17 deploy --dir=public --prod
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
