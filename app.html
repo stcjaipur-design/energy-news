@@ -136,6 +136,7 @@ const WATCH=[
 
 function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 function cleanTitle(t){return (t||'').replace(/\s+/g,' ').replace(/&amp;/g,'&').trim();}
+function keyOf(a){return String(a&&a.title||a&&a.url||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim().slice(0,90);}
 function parseDate(s){
   if(!s) return null;
   if(s instanceof Date) return isNaN(s)?null:s;
@@ -220,33 +221,33 @@ let COMPANY_FILTER=new Set();
 function setStatus(cls,text){const s=document.getElementById('status');s.querySelector('.dot').className='dot '+cls;document.getElementById('statusText').textContent=text;}
 function tagBadge(t){return t==='crude'?'<span class="badge b-crude">Crude</span>':t==='base'?'<span class="badge b-base">Base Oil</span>':t==='ref'?'<span class="badge b-ref">Refinery</span>':t==='geo'?'<span class="badge b-geo">Geopolitics</span>':t==='co'?'<span class="badge b-co">Company</span>':'';}
 
-function visible(){return ALL.filter(a=>!isDeleted(a.url));}
+function visible(){return ALL.filter(a=>!isDeleted(keyOf(a)));}
 
 function render(){
   purge();
   const content=document.getElementById('content');
   const base=visible();
   const counts={all:0,crude:0,base:0,ref:0,geo:0,co:0,saved:0};
-  base.forEach(a=>{if(isSaved(a.url)){counts.saved++;return;}if(isRead(a.url))return;counts.all++;a.tags.forEach(t=>{if(counts[t]!=null)counts[t]++;});});
+  base.forEach(a=>{if(isSaved(keyOf(a))){counts.saved++;return;}if(isRead(keyOf(a)))return;counts.all++;a.tags.forEach(t=>{if(counts[t]!=null)counts[t]++;});});
   document.querySelectorAll('.tab').forEach(t=>{const k=t.dataset.k;t.querySelector('.n').textContent=counts[k]!=null?counts[k]:0;});
 
   let items=base.slice();
-  if(TAB==='saved') items=items.filter(a=>isSaved(a.url));
-  else {items=items.filter(a=>!isSaved(a.url)); if(TAB!=='all') items=items.filter(a=>a.tags.includes(TAB));}
+  if(TAB==='saved') items=items.filter(a=>isSaved(keyOf(a)));
+  else {items=items.filter(a=>!isSaved(keyOf(a))); if(TAB!=='all') items=items.filter(a=>a.tags.includes(TAB));}
   if(WATCHONLY) items=items.filter(a=>a.watch&&a.watch.length);
   if(COMPANY_FILTER.size) items=items.filter(a=>a.watch&&a.watch.some(w=>COMPANY_FILTER.has(w)));
   if(INDIA) items=items.filter(a=>a.india);
-  if(HIDEREAD) items=items.filter(a=>!isRead(a.url));
+  if(HIDEREAD) items=items.filter(a=>!isRead(keyOf(a)));
   if(Q){const q=Q.toLowerCase();items=items.filter(a=>a.title.toLowerCase().includes(q));}
 
   items.sort((a,b)=>{
-    const ra=isRead(a.url)?1:0, rb=isRead(b.url)?1:0;
+    const ra=isRead(keyOf(a))?1:0, rb=isRead(keyOf(b))?1:0;
     if(ra!==rb) return ra-rb;
     if(a.d&&b.d) return b.d-a.d;
     if(a.d) return -1; if(b.d) return 1; return 0;
   });
 
-  const readCount=base.filter(a=>isRead(a.url)).length;
+  const readCount=base.filter(a=>isRead(keyOf(a))).length;
   const parts=['<span>'+items.length+' shown</span>'];
   if(readCount) parts.push('<span>· '+readCount+' read (auto-delete after 2 days)</span>');
   if(counts.saved) parts.push('<span>· '+counts.saved+' saved</span>');
@@ -254,24 +255,24 @@ function render(){
 
   if(!items.length){content.innerHTML='<div class="empty">Nothing here right now.</div>';return;}
   content.innerHTML='<div class="list">'+items.map(a=>{
-    const u=esc(a.url); const read=isRead(a.url), saved=isSaved(a.url);
+    const u=esc(a.url); const k=esc(keyOf(a)); const read=isRead(keyOf(a)), saved=isSaved(keyOf(a));
     let badges=a.tags.map(tagBadge).join('');
     if(a.watch&&a.watch.length) badges+=a.watch.map(w=>'<span class="chip">'+esc(w)+'</span>').join('');
     if(a.india) badges+='<span class="badge b-india">India</span>';
     const dt=a.d?('<span class="date">'+fmtDate(a.d)+' · '+relTime(a.d)+'</span>'):'<span class="date"></span>';
     const sum=a.sum?('<div class="sum">'+esc(a.sum)+'</div>'):'';
     let cd='';
-    if(read){const left=TWO_DAYS-(Date.now()-STATE[a.url].r);const d=Math.max(1,Math.ceil(left/86400000));cd='<span class="countdown">auto-deletes in '+d+'d</span>';}
+    if(read){const left=TWO_DAYS-(Date.now()-STATE[keyOf(a)].r);const d=Math.max(1,Math.ceil(left/86400000));cd='<span class="countdown">auto-deletes in '+d+'d</span>';}
     const wa='https://wa.me/?text='+encodeURIComponent(a.title+' — '+a.url);
     return '<div class="card'+(read?' read':'')+(saved?' saved-card':'')+'">'+
       '<div class="top">'+badges+'<span class="src">'+esc(a.src)+'</span>'+dt+'</div>'+
       '<a class="title" href="'+u+'" target="_blank" rel="noopener">'+esc(a.title)+'</a>'+sum+
       '<div class="actions">'+
-        '<button class="act read'+(read?' on':'')+'" data-act="read" data-url="'+u+'">'+(read?'✓ Read':'Mark read')+'</button>'+
-        '<button class="act save'+(saved?' on':'')+'" data-act="save" data-url="'+u+'">'+(saved?'★ Saved':'☆ Save')+'</button>'+
+        '<button class="act read'+(read?' on':'')+'" data-act="read" data-key="'+k+'">'+(read?'✓ Read':'Mark read')+'</button>'+
+        '<button class="act save'+(saved?' on':'')+'" data-act="save" data-key="'+k+'">'+(saved?'★ Saved':'☆ Save')+'</button>'+
         '<a class="act share" href="'+esc(wa)+'" target="_blank" rel="noopener" title="Share on WhatsApp">↗ WhatsApp</a>'+
         '<button class="act copy" data-act="copy" data-url="'+u+'" data-title="'+esc(a.title)+'">🔗 Copy link</button>'+
-        '<button class="act del" data-act="del" data-url="'+u+'">✕ Delete</button>'+
+        '<button class="act del" data-act="del" data-key="'+k+'">✕ Delete</button>'+
         cd+
       '</div></div>';
   }).join('')+'</div>';
@@ -280,18 +281,19 @@ function render(){
 document.addEventListener('click',e=>{
   const b=e.target.closest('.act'); if(!b)return;
   const act=b.dataset.act; if(!act) return; // e.g. WhatsApp anchor
-  const u=b.dataset.url;
   if(act==='copy'){
+    const u=b.dataset.url;
     const txt=(b.dataset.title||'')+' — '+u;
     const done=()=>{const o=b.textContent;b.textContent='✓ Copied';b.classList.add('done');setTimeout(()=>{b.textContent=o;b.classList.remove('done');},1500);};
     try{navigator.clipboard.writeText(txt).then(done,()=>{prompt('Copy this link:',txt);});}
     catch(err){prompt('Copy this link:',txt);}
     return;
   }
-  if(act==='read'){const s=st(u);if(s.r)delete s.r;else s.r=Date.now();}
-  else if(act==='save'){const s=st(u);s.s=!s.s;if(!s.s)delete s.s;}
-  else if(act==='del'){st(u).d=Date.now();}
-  touch(u); saveState(); render();
+  const k=b.dataset.key;
+  if(act==='read'){const s=st(k);if(s.r)delete s.r;else s.r=Date.now();}
+  else if(act==='save'){const s=st(k);s.s=!s.s;if(!s.s)delete s.s;}
+  else if(act==='del'){st(k).d=Date.now();}
+  touch(k); saveState(); render();
 });
 
 function ingest(list){
