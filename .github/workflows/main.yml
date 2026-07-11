@@ -1,7 +1,8 @@
 name: Refresh Energy News
 on:
   schedule:
-    - cron: '30 0,5,7,10,16 * * *'
+    - cron: '12 0,5,7,10,16 * * *'
+    - cron: '42 0,5,7,10,16 * * *'
   workflow_dispatch: {}
 jobs:
   build-deploy:
